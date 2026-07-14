@@ -156,8 +156,14 @@
 
 </div>
 
-<script>
-let photoDataUrl = null;
+<script type="module">
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+const SUPABASE_URL = 'https://lnpfusbjnjysdyjsurgx.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxucGZ1c2Jqbmp5c2R5anN1cmd4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQwMTI4MjksImV4cCI6MjA5OTU4ODgyOX0.24Xh8Q7Y7CxucZY_bu1I1AOjSe3azcwVtrAonPChGU0';
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+let photoBlob = null;
 
 const uploadBox = document.getElementById('uploadBox');
 const submitBtn = document.getElementById('submitBtn');
@@ -166,7 +172,7 @@ const successMsg = document.getElementById('successMsg');
 
 function checkFormValid(){
   const consent = document.getElementById('consent').checked;
-  submitBtn.disabled = !(photoDataUrl && consent);
+  submitBtn.disabled = !(photoBlob && consent);
 }
 
 document.getElementById('consent').addEventListener('change', checkFormValid);
@@ -181,19 +187,22 @@ uploadBox.addEventListener('change', (e) => {
   reader.onload = (evt) => {
     const img = new Image();
     img.onload = () => {
-      // resize to keep storage small
-      const maxW = 700;
+      // resize to keep uploads small
+      const maxW = 900;
       const scale = Math.min(1, maxW / img.width);
       const canvas = document.createElement('canvas');
       canvas.width = img.width * scale;
       canvas.height = img.height * scale;
       const ctx = canvas.getContext('2d');
       ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      photoDataUrl = canvas.toDataURL('image/jpeg', 0.7);
 
-      uploadBox.classList.add('has-image');
-      uploadBox.innerHTML = `<img src="${photoDataUrl}"><input type="file" id="photoInput" accept="image/*">`;
-      checkFormValid();
+      canvas.toBlob((blob) => {
+        photoBlob = blob;
+        const previewUrl = URL.createObjectURL(blob);
+        uploadBox.classList.add('has-image');
+        uploadBox.innerHTML = `<img src="${previewUrl}"><input type="file" id="photoInput" accept="image/*">`;
+        checkFormValid();
+      }, 'image/jpeg', 0.7);
     };
     img.onerror = () => {
       errorMsg.textContent = "Couldn't read that photo. Try a different one (JPG or PNG works best).";
@@ -214,36 +223,35 @@ submitBtn.addEventListener('click', async () => {
   submitBtn.textContent = 'TAKING TOKEN...';
 
   try{
-    // get next token number from a shared counter
-    let nextNum = 1;
-    try{
-      const counterRes = await window.storage.get('token-counter', true);
-      if(counterRes && counterRes.value){
-        nextNum = parseInt(counterRes.value, 10) + 1;
-      }
-    }catch(e){ /* counter doesn't exist yet, start at 1 */ }
+    // 1. Upload the photo to storage
+    const fileName = `${Date.now()}-${Math.random().toString(36).slice(2,8)}.jpg`;
+    const { error: uploadError } = await supabase.storage
+      .from('photos')
+      .upload(fileName, photoBlob, { contentType: 'image/jpeg' });
 
-    await window.storage.set('token-counter', String(nextNum), true);
+    if(uploadError) throw uploadError;
 
-    const submission = {
-      tokenNumber: nextNum,
-      handle: document.getElementById('handle').value.trim() || 'anonymous',
-      city: document.getElementById('city').value.trim() || 'unknown',
-      routine: document.getElementById('routine').value.trim() || 'not specified',
-      photo: photoDataUrl,
-      consent: true,
-      submittedAt: new Date().toISOString()
-    };
+    const { data: urlData } = supabase.storage.from('photos').getPublicUrl(fileName);
+    const photoUrl = urlData.publicUrl;
 
-    const key = 'token:' + String(nextNum).padStart(4,'0');
-    const result = await window.storage.set(key, JSON.stringify(submission), true);
-    if(!result){
-      throw new Error('Storage returned no result');
-    }
+    // 2. Insert the row — id auto-increments and doubles as the token number
+    const { data: inserted, error: insertError } = await supabase
+      .from('tokens')
+      .insert({
+        handle: document.getElementById('handle').value.trim() || 'anonymous',
+        city: document.getElementById('city').value.trim() || 'unknown',
+        routine: document.getElementById('routine').value.trim() || 'not specified',
+        photo_url: photoUrl,
+        consent: true
+      })
+      .select()
+      .single();
+
+    if(insertError) throw insertError;
 
     document.getElementById('form-view').querySelectorAll('input,textarea,button').forEach(el => el.style.display='none');
     document.querySelector('.note').style.display = 'none';
-    successMsg.textContent = 'TOKEN #' + String(nextNum).padStart(4,'0') + ' TAKEN. Wait for your number.';
+    successMsg.textContent = 'TOKEN #' + String(inserted.id).padStart(4,'0') + ' TAKEN. Wait for your number.';
     successMsg.classList.add('show');
   }catch(err){
     console.error(err);
@@ -257,12 +265,6 @@ submitBtn.addEventListener('click', async () => {
 // Queue view
 const formView = document.getElementById('form-view');
 const queueView = document.getElementById('queue-view');
-
-document.getElementById('viewQueueLink') && document.getElementById('viewQueueLink').addEventListener('click', async () => {
-  formView.classList.add('hide');
-  queueView.classList.add('show');
-  await loadQueue();
-});
 
 document.getElementById('backToFormLink').addEventListener('click', () => {
   window.location.hash = '';
@@ -291,35 +293,28 @@ async function loadQueue(){
   queueCount.textContent = 'loading...';
 
   try{
-    const listResult = await window.storage.list('token:', true);
-    const keys = listResult ? listResult.keys : [];
+    const { data: tokens, error } = await supabase
+      .from('tokens')
+      .select('*')
+      .order('id', { ascending: true });
 
-    if(!keys || keys.length === 0){
+    if(error) throw error;
+
+    if(!tokens || tokens.length === 0){
       queueCount.textContent = '0 waiting';
       queueList.innerHTML = '<div class="empty-state">No tokens yet. Share the link.</div>';
       return;
     }
 
-    const tokens = [];
-    for(const key of keys){
-      try{
-        const res = await window.storage.get(key, true);
-        if(res && res.value){
-          tokens.push(JSON.parse(res.value));
-        }
-      }catch(e){ /* skip unreadable entries */ }
-    }
-
-    tokens.sort((a,b) => a.tokenNumber - b.tokenNumber);
     queueCount.textContent = tokens.length + ' waiting';
 
     tokens.forEach(t => {
       const card = document.createElement('div');
       card.className = 'case-card';
       card.innerHTML = `
-        <img src="${t.photo}">
+        <img src="${t.photo_url}">
         <div class="case-meta">
-          <b>TOKEN #${String(t.tokenNumber).padStart(4,'0')}</b>
+          <b>TOKEN #${String(t.id).padStart(4,'0')}</b>
           ${t.handle} · ${t.city}<br>
           "${t.routine}"
         </div>
