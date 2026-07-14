@@ -121,7 +121,7 @@
       <div class="clinic-name">@aryan3ctrl</div>
     </div>
     <h1>Fix My Hair</h1>
-    <div class="sub">Take a Token</div>
+    <div class="sub" id="pageSub">Take a Token</div>
     <div id="formFields">
       <div class="note">
         Like waiting your turn at a barbershop. Take a token, I'll call your number on @aryan3ctrl.
@@ -264,6 +264,7 @@ submitBtn.addEventListener('click', async () => {
     if(insertError) throw insertError;
 
     document.getElementById('formFields').style.display = 'none';
+    document.getElementById('pageSub').textContent = 'Token Taken';
     successMsg.textContent = 'TOKEN #' + String(inserted.id).padStart(4,'0') + ' TAKEN. You\'ll be featured on my next video — stay tuned.';
     successMsg.classList.add('show');
     document.getElementById('followBtn').classList.add('show');
