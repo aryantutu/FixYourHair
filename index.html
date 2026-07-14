@@ -112,34 +112,37 @@
     </div>
     <h1>Fix My Hair</h1>
     <div class="sub">Take a Token</div>
-    <div class="note">
-      Like waiting your turn at a barbershop. Take a token, I'll call your number on @aryan3ctrl.
-      No names used unless you say it's fine.
+    <div id="formFields">
+      <div class="note">
+        Like waiting your turn at a barbershop. Take a token, I'll call your number on @aryan3ctrl.
+        No names used unless you say it's fine.
+      </div>
+
+      <label>Instagram Handle</label>
+      <input type="text" id="handle" placeholder="@yourhandle">
+
+      <label>City</label>
+      <input type="text" id="city" placeholder="e.g. Delhi">
+
+      <label>What are you currently using on your hair?</label>
+      <textarea id="routine" placeholder="Shampoo, oil, gel, or 'nothing, I just towel dry and pray'"></textarea>
+
+      <label>Photo of your hair</label>
+      <div class="upload-box" id="uploadBox">
+        <span id="uploadText">Tap to upload a photo</span>
+        <input type="file" id="photoInput" accept="image/*">
+      </div>
+
+      <div class="consent">
+        <input type="checkbox" id="consent">
+        <label for="consent" style="margin:0; text-transform:none; letter-spacing:0; font-size:11.5px;">
+          I'm okay with my photo and handle being featured in a video if selected.
+        </label>
+      </div>
+
+      <button class="submit-btn" id="submitBtn" disabled>Take a Token</button>
     </div>
 
-    <label>Instagram Handle</label>
-    <input type="text" id="handle" placeholder="@yourhandle">
-
-    <label>City</label>
-    <input type="text" id="city" placeholder="e.g. Delhi">
-
-    <label>What are you currently using on your hair?</label>
-    <textarea id="routine" placeholder="Shampoo, oil, gel, or 'nothing, I just towel dry and pray'"></textarea>
-
-    <label>Photo of your hair</label>
-    <div class="upload-box" id="uploadBox">
-      <span id="uploadText">Tap to upload a photo</span>
-      <input type="file" id="photoInput" accept="image/*">
-    </div>
-
-    <div class="consent">
-      <input type="checkbox" id="consent">
-      <label for="consent" style="margin:0; text-transform:none; letter-spacing:0; font-size:11.5px;">
-        I'm okay with my photo and handle being featured in a video if selected.
-      </label>
-    </div>
-
-    <button class="submit-btn" id="submitBtn" disabled>Take a Token</button>
     <div class="error-msg" id="errorMsg"></div>
     <div class="stamp-success" id="successMsg"></div>
   </div>
@@ -249,8 +252,7 @@ submitBtn.addEventListener('click', async () => {
 
     if(insertError) throw insertError;
 
-    document.getElementById('form-view').querySelectorAll('input,textarea,button').forEach(el => el.style.display='none');
-    document.querySelector('.note').style.display = 'none';
+    document.getElementById('formFields').style.display = 'none';
     successMsg.textContent = 'TOKEN #' + String(inserted.id).padStart(4,'0') + ' TAKEN. Wait for your number.';
     successMsg.classList.add('show');
   }catch(err){
