@@ -79,6 +79,16 @@
     display:none;
   }
   .stamp-success.show{display:block;}
+
+  .follow-btn{
+    display:none;
+    text-align:center; text-decoration:none;
+    margin-top:14px; padding:14px;
+    background:var(--ink); color:var(--paper);
+    border-radius:8px;
+    font-family:var(--mono); font-size:13px; letter-spacing:1px; text-transform:uppercase;
+  }
+  .follow-btn.show{display:block;}
   .error-msg{
     margin-top:14px; font-family:var(--mono); font-size:11.5px; color:var(--stamp); display:none;
   }
@@ -145,6 +155,7 @@
 
     <div class="error-msg" id="errorMsg"></div>
     <div class="stamp-success" id="successMsg"></div>
+    <a class="follow-btn" id="followBtn" href="https://instagram.com/aryan3ctrl" target="_blank">Follow @aryan3ctrl →</a>
   </div>
 
   <div id="queue-view">
@@ -253,8 +264,9 @@ submitBtn.addEventListener('click', async () => {
     if(insertError) throw insertError;
 
     document.getElementById('formFields').style.display = 'none';
-    successMsg.textContent = 'TOKEN #' + String(inserted.id).padStart(4,'0') + ' TAKEN. Wait for your number.';
+    successMsg.textContent = 'TOKEN #' + String(inserted.id).padStart(4,'0') + ' TAKEN. You\'ll be featured on my next video — stay tuned.';
     successMsg.classList.add('show');
+    document.getElementById('followBtn').classList.add('show');
   }catch(err){
     console.error(err);
     errorMsg.textContent = 'Something went wrong taking your token. Try again in a moment.';
