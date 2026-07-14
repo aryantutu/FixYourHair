@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fix My Hair — Case Intake</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Newsreader:ital,wght@0,500;0,700;1,500&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+  :root{
+    --paper:#F7F5F0;
+    --ink:#1E2A24;
+    --stamp:#8C2F1B;
+    --line:#C9C2B4;
+    --ok:#4B6A52;
+    --mono: 'JetBrains Mono', monospace;
+    --serif: 'Newsreader', serif;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; min-height:100vh; background:var(--paper);
+    background-image: repeating-linear-gradient(180deg, transparent 0 27px, rgba(30,42,36,0.05) 27px 28px);
+    font-family:var(--serif); color:var(--ink);
+    display:flex; justify-content:center; padding:36px 16px 80px;
+  }
+  .page{width:100%; max-width:440px;}
+
+  .letterhead{
+    border-bottom:2px solid var(--ink);
+    padding-bottom:14px; margin-bottom:20px;
+    display:flex; justify-content:space-between; align-items:flex-end;
+  }
+  .clinic-name{font-family:var(--mono); font-size:11px; letter-spacing:1.5px; text-transform:uppercase; color:#5c6b62;}
+  .rx-mark{font-family:var(--serif); font-style:italic; font-weight:700; font-size:30px; line-height:1;}
+
+  h1{font-size:26px; margin:0 0 4px; font-weight:700;}
+  .sub{font-family:var(--mono); font-size:12px; color:var(--stamp); margin-bottom:20px;}
+
+  .note{
+    font-family:var(--mono); font-size:12px; line-height:1.7; color:#3c4a42;
+    border-left:2px solid var(--line); padding-left:12px; margin-bottom:24px;
+  }
+
+  label{display:block; font-family:var(--mono); font-size:11px; text-transform:uppercase; letter-spacing:0.8px; color:#5c6b62; margin:18px 0 6px;}
+  input[type=text], select, textarea{
+    width:100%; font-family:var(--serif); font-size:15px; color:var(--ink);
+    background:transparent; border:none; border-bottom:1.5px solid var(--line);
+    padding:8px 2px; outline:none;
+  }
+  input[type=text]:focus, select:focus, textarea:focus{border-bottom-color:var(--stamp);}
+  textarea{resize:vertical; min-height:60px; font-family:var(--serif);}
+
+  .upload-box{
+    margin-top:8px; border:1.5px dashed var(--line); border-radius:8px;
+    padding:20px; text-align:center; cursor:pointer; position:relative;
+    font-family:var(--mono); font-size:12px; color:#6b7970;
+  }
+  .upload-box.has-image{border-color:var(--ok); padding:0; overflow:hidden;}
+  .upload-box img{width:100%; display:block; max-height:280px; object-fit:cover;}
+  .upload-box input[type=file]{position:absolute; inset:0; opacity:0; cursor:pointer;}
+  .upload-hint{margin-top:4px; font-size:10.5px; color:#8a9a90;}
+
+  .consent{display:flex; align-items:flex-start; gap:8px; margin-top:20px; font-family:var(--mono); font-size:11.5px; color:#5c6b62;}
+  .consent input{margin-top:3px;}
+
+  button.submit-btn{
+    width:100%; margin-top:26px; padding:14px;
+    background:var(--ink); color:var(--paper); border:none; border-radius:8px;
+    font-family:var(--mono); font-size:13px; letter-spacing:1px; text-transform:uppercase;
+    cursor:pointer; transition:opacity .15s;
+  }
+  button.submit-btn:disabled{opacity:0.5; cursor:not-allowed;}
+  button.submit-btn:not(:disabled):hover{opacity:0.85;}
+
+  .stamp-success{
+    margin-top:22px; text-align:center;
+    font-family:var(--mono); font-size:12px; color:var(--ok);
+    border:1.5px dashed var(--ok); border-radius:6px; padding:14px;
+    display:none;
+  }
+  .stamp-success.show{display:block;}
+  .error-msg{
+    margin-top:14px; font-family:var(--mono); font-size:11.5px; color:var(--stamp); display:none;
+  }
+  .error-msg.show{display:block;}
+
+  .footer-links{
+    margin-top:40px; text-align:center; font-family:var(--mono); font-size:10.5px; color:#a89e8e;
+  }
+  .footer-links a{color:#a89e8e; text-decoration:underline; cursor:pointer;}
+
+  /* Queue view */
+  #queue-view{display:none;}
+  #queue-view.show{display:block;}
+  #form-view.hide{display:none;}
+  .case-card{
+    border:1.5px solid var(--line); border-radius:8px; padding:14px; margin-bottom:14px;
+    display:flex; gap:12px;
+  }
+  .case-card img{width:70px; height:70px; object-fit:cover; border-radius:6px; flex-shrink:0;}
+  .case-meta{font-family:var(--mono); font-size:11px; color:#5c6b62; line-height:1.6;}
+  .case-meta b{color:var(--ink); font-size:13px; font-family:var(--serif); display:block;}
+  .empty-state{font-family:var(--mono); font-size:12px; color:#8a9a90; text-align:center; padding:30px 0;}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div id="form-view">
+    <div class="letterhead">
+      <div class="clinic-name">@aryan3ctrl</div>
+    </div>
+    <h1>Fix My Hair</h1>
+    <div class="sub">Take a Token</div>
+    <div class="note">
+      Like waiting your turn at a barbershop. Take a token, I'll call your number on @aryan3ctrl.
+      No names used unless you say it's fine.
+    </div>
+
+    <label>Instagram Handle</label>
+    <input type="text" id="handle" placeholder="@yourhandle">
+
+    <label>City</label>
+    <input type="text" id="city" placeholder="e.g. Delhi">
+
+    <label>What are you currently using on your hair?</label>
+    <textarea id="routine" placeholder="Shampoo, oil, gel, or 'nothing, I just towel dry and pray'"></textarea>
+
+    <label>Photo of your hair</label>
+    <div class="upload-box" id="uploadBox">
+      <span id="uploadText">Tap to upload a photo</span>
+      <input type="file" id="photoInput" accept="image/*">
+    </div>
+
+    <div class="consent">
+      <input type="checkbox" id="consent">
+      <label for="consent" style="margin:0; text-transform:none; letter-spacing:0; font-size:11.5px;">
+        I'm okay with my photo and handle being featured in a video if selected.
+      </label>
+    </div>
+
+    <button class="submit-btn" id="submitBtn" disabled>Take a Token</button>
+    <div class="error-msg" id="errorMsg"></div>
+    <div class="stamp-success" id="successMsg"></div>
+  </div>
+
+  <div id="queue-view">
+    <div class="letterhead">
+      <div class="clinic-name">@aryan3ctrl</div>
+    </div>
+    <h1>Token Queue</h1>
+    <div class="sub" id="queueCount">loading...</div>
+    <div id="queueList"></div>
+    <div class="footer-links"><a id="backToFormLink">← back to intake form</a></div>
+  </div>
+
+</div>
+
+<script>
+let photoDataUrl = null;
+
+const uploadBox = document.getElementById('uploadBox');
+const submitBtn = document.getElementById('submitBtn');
+const errorMsg = document.getElementById('errorMsg');
+const successMsg = document.getElementById('successMsg');
+
+function checkFormValid(){
+  const consent = document.getElementById('consent').checked;
+  submitBtn.disabled = !(photoDataUrl && consent);
+}
+
+document.getElementById('consent').addEventListener('change', checkFormValid);
+
+// Event delegation: works no matter how many times the inner <input> gets replaced
+uploadBox.addEventListener('change', (e) => {
+  if(!e.target.matches('input[type=file]')) return;
+  const file = e.target.files[0];
+  if(!file) return;
+
+  const reader = new FileReader();
+  reader.onload = (evt) => {
+    const img = new Image();
+    img.onload = () => {
+      // resize to keep storage small
+      const maxW = 700;
+      const scale = Math.min(1, maxW / img.width);
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width * scale;
+      canvas.height = img.height * scale;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      photoDataUrl = canvas.toDataURL('image/jpeg', 0.7);
+
+      uploadBox.classList.add('has-image');
+      uploadBox.innerHTML = `<img src="${photoDataUrl}"><input type="file" id="photoInput" accept="image/*">`;
+      checkFormValid();
+    };
+    img.onerror = () => {
+      errorMsg.textContent = "Couldn't read that photo. Try a different one (JPG or PNG works best).";
+      errorMsg.classList.add('show');
+    };
+    img.src = evt.target.result;
+  };
+  reader.onerror = () => {
+    errorMsg.textContent = "Couldn't read that file. Try again.";
+    errorMsg.classList.add('show');
+  };
+  reader.readAsDataURL(file);
+});
+
+submitBtn.addEventListener('click', async () => {
+  errorMsg.classList.remove('show');
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'TAKING TOKEN...';
+
+  try{
+    // get next token number from a shared counter
+    let nextNum = 1;
+    try{
+      const counterRes = await window.storage.get('token-counter', true);
+      if(counterRes && counterRes.value){
+        nextNum = parseInt(counterRes.value, 10) + 1;
+      }
+    }catch(e){ /* counter doesn't exist yet, start at 1 */ }
+
+    await window.storage.set('token-counter', String(nextNum), true);
+
+    const submission = {
+      tokenNumber: nextNum,
+      handle: document.getElementById('handle').value.trim() || 'anonymous',
+      city: document.getElementById('city').value.trim() || 'unknown',
+      routine: document.getElementById('routine').value.trim() || 'not specified',
+      photo: photoDataUrl,
+      consent: true,
+      submittedAt: new Date().toISOString()
+    };
+
+    const key = 'token:' + String(nextNum).padStart(4,'0');
+    const result = await window.storage.set(key, JSON.stringify(submission), true);
+    if(!result){
+      throw new Error('Storage returned no result');
+    }
+
+    document.getElementById('form-view').querySelectorAll('input,textarea,button').forEach(el => el.style.display='none');
+    document.querySelector('.note').style.display = 'none';
+    successMsg.textContent = 'TOKEN #' + String(nextNum).padStart(4,'0') + ' TAKEN. Wait for your number.';
+    successMsg.classList.add('show');
+  }catch(err){
+    console.error(err);
+    errorMsg.textContent = 'Something went wrong taking your token. Try again in a moment.';
+    errorMsg.classList.add('show');
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Take a Token';
+  }
+});
+
+// Queue view
+const formView = document.getElementById('form-view');
+const queueView = document.getElementById('queue-view');
+
+document.getElementById('viewQueueLink') && document.getElementById('viewQueueLink').addEventListener('click', async () => {
+  formView.classList.add('hide');
+  queueView.classList.add('show');
+  await loadQueue();
+});
+
+document.getElementById('backToFormLink').addEventListener('click', () => {
+  window.location.hash = '';
+  queueView.classList.remove('show');
+  formView.classList.remove('hide');
+});
+
+// Secret access: open with #queue in the URL to see the queue view
+async function checkHashRoute(){
+  if(window.location.hash === '#queue'){
+    formView.classList.add('hide');
+    queueView.classList.add('show');
+    await loadQueue();
+  }else{
+    formView.classList.remove('hide');
+    queueView.classList.remove('show');
+  }
+}
+checkHashRoute();
+window.addEventListener('hashchange', checkHashRoute);
+
+async function loadQueue(){
+  const queueList = document.getElementById('queueList');
+  const queueCount = document.getElementById('queueCount');
+  queueList.innerHTML = '';
+  queueCount.textContent = 'loading...';
+
+  try{
+    const listResult = await window.storage.list('token:', true);
+    const keys = listResult ? listResult.keys : [];
+
+    if(!keys || keys.length === 0){
+      queueCount.textContent = '0 waiting';
+      queueList.innerHTML = '<div class="empty-state">No tokens yet. Share the link.</div>';
+      return;
+    }
+
+    const tokens = [];
+    for(const key of keys){
+      try{
+        const res = await window.storage.get(key, true);
+        if(res && res.value){
+          tokens.push(JSON.parse(res.value));
+        }
+      }catch(e){ /* skip unreadable entries */ }
+    }
+
+    tokens.sort((a,b) => a.tokenNumber - b.tokenNumber);
+    queueCount.textContent = tokens.length + ' waiting';
+
+    tokens.forEach(t => {
+      const card = document.createElement('div');
+      card.className = 'case-card';
+      card.innerHTML = `
+        <img src="${t.photo}">
+        <div class="case-meta">
+          <b>TOKEN #${String(t.tokenNumber).padStart(4,'0')}</b>
+          ${t.handle} · ${t.city}<br>
+          "${t.routine}"
+        </div>
+      `;
+      queueList.appendChild(card);
+    });
+  }catch(err){
+    console.error(err);
+    queueCount.textContent = 'error loading queue';
+  }
+}
+</script>
+</body>
+</html>
