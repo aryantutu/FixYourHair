@@ -111,6 +111,15 @@
   .case-meta{font-family:var(--mono); font-size:11px; color:#5c6b62; line-height:1.6;}
   .case-meta b{color:var(--ink); font-size:13px; font-family:var(--serif); display:block;}
   .empty-state{font-family:var(--mono); font-size:12px; color:#8a9a90; text-align:center; padding:30px 0;}
+  .case-card img{cursor:pointer;}
+
+  .lightbox{
+    display:none; position:fixed; inset:0; background:rgba(30,42,36,0.92);
+    z-index:100; align-items:center; justify-content:center; padding:24px;
+    cursor:zoom-out;
+  }
+  .lightbox.show{display:flex;}
+  .lightbox img{max-width:100%; max-height:100%; border-radius:8px; object-fit:contain;}
 </style>
 </head>
 <body>
@@ -166,6 +175,10 @@
     <div class="sub" id="queueCount">loading...</div>
     <div id="queueList"></div>
     <div class="footer-links"><a id="backToFormLink">← back to intake form</a></div>
+  </div>
+
+  <div class="lightbox" id="lightbox">
+    <img id="lightboxImg" src="">
   </div>
 
 </div>
@@ -280,6 +293,12 @@ submitBtn.addEventListener('click', async () => {
 // Queue view
 const formView = document.getElementById('form-view');
 const queueView = document.getElementById('queue-view');
+const lightbox = document.getElementById('lightbox');
+const lightboxImg = document.getElementById('lightboxImg');
+
+lightbox.addEventListener('click', () => {
+  lightbox.classList.remove('show');
+});
 
 document.getElementById('backToFormLink').addEventListener('click', () => {
   window.location.hash = '';
@@ -327,7 +346,7 @@ async function loadQueue(){
       const card = document.createElement('div');
       card.className = 'case-card';
       card.innerHTML = `
-        <img src="${t.photo_url}">
+        <img src="${t.photo_url}" data-full="${t.photo_url}">
         <div class="case-meta">
           <b>TOKEN #${String(t.id).padStart(4,'0')}</b>
           ${t.handle} · ${t.city}<br>
@@ -341,6 +360,13 @@ async function loadQueue(){
     queueCount.textContent = 'error loading queue';
   }
 }
+
+document.getElementById('queueList').addEventListener('click', (e) => {
+  if(e.target.matches('img[data-full]')){
+    lightboxImg.src = e.target.dataset.full;
+    lightbox.classList.add('show');
+  }
+});
 </script>
 </body>
 </html>
