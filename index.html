@@ -50,14 +50,21 @@
   input[type=text]:focus, select:focus, textarea:focus{border-bottom-color:var(--stamp);}
   textarea{resize:vertical; min-height:60px; font-family:var(--serif);}
 
-  .upload-box{
-    margin-top:8px; border:1.5px dashed var(--line); border-radius:8px;
-    padding:20px; text-align:center; cursor:pointer; position:relative;
-    font-family:var(--mono); font-size:12px; color:#6b7970;
+  .upload-grid{
+    display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; margin-top:8px;
   }
-  .upload-box.has-image{border-color:var(--ok); padding:0; overflow:hidden;}
-  .upload-box img{width:100%; display:block; max-height:280px; object-fit:cover;}
-  .upload-box input[type=file]{position:absolute; inset:0; opacity:0; cursor:pointer;}
+  .upload-tile{
+    position:relative; aspect-ratio:1; border-radius:8px; overflow:hidden;
+    border:1.5px dashed var(--line); display:flex; align-items:center; justify-content:center;
+    font-family:var(--mono); font-size:10.5px; color:#6b7970; text-align:center; cursor:pointer;
+  }
+  .upload-tile input[type=file]{position:absolute; inset:0; opacity:0; cursor:pointer;}
+  .upload-tile img{width:100%; height:100%; object-fit:cover; display:block;}
+  .upload-tile .remove-btn{
+    position:absolute; top:3px; right:3px; width:20px; height:20px; border-radius:50%;
+    background:rgba(30,42,36,0.85); color:var(--paper); font-family:var(--mono); font-size:12px;
+    display:flex; align-items:center; justify-content:center; cursor:pointer; z-index:2;
+  }
   .upload-hint{margin-top:4px; font-size:10.5px; color:#8a9a90;}
 
   .consent{display:flex; align-items:flex-start; gap:8px; margin-top:20px; font-family:var(--mono); font-size:11.5px; color:#5c6b62;}
@@ -115,13 +122,13 @@
   #form-view.hide{display:none;}
   .case-card{
     border:1.5px solid var(--line); border-radius:8px; padding:14px; margin-bottom:14px;
-    display:flex; gap:12px;
+    display:flex; gap:12px; align-items:flex-start;
   }
-  .case-card img{width:70px; height:70px; object-fit:cover; border-radius:6px; flex-shrink:0;}
+  .case-photos{display:flex; flex-wrap:wrap; gap:4px; width:76px; flex-shrink:0;}
+  .case-photos img{width:36px; height:36px; object-fit:cover; border-radius:5px; cursor:pointer;}
   .case-meta{font-family:var(--mono); font-size:11px; color:#5c6b62; line-height:1.6;}
   .case-meta b{color:var(--ink); font-size:13px; font-family:var(--serif); display:block;}
   .empty-state{font-family:var(--mono); font-size:12px; color:#8a9a90; text-align:center; padding:30px 0;}
-  .case-card img{cursor:pointer;}
 
   .lightbox{
     display:none; position:fixed; inset:0; background:rgba(30,42,36,0.92);
@@ -156,10 +163,12 @@
       <label>What are you currently using on your hair?</label>
       <textarea id="routine" placeholder="Shampoo, oil, gel, or 'nothing, I just towel dry and pray'"></textarea>
 
-      <label>Photo of your hair</label>
-      <div class="upload-box" id="uploadBox">
-        <span id="uploadText">Tap to upload a photo</span>
-        <input type="file" id="photoInput" accept="image/*">
+      <label>Photo(s) of your hair</label>
+      <div class="upload-grid" id="uploadGrid">
+        <div class="upload-tile" id="addTile">
+          <span>+ Add photo</span>
+          <input type="file" id="photoInput" accept="image/*" multiple>
+        </div>
       </div>
 
       <div class="consent">
@@ -201,58 +210,91 @@ const SUPABASE_URL = 'https://lnpfusbjnjysdyjsurgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxucGZ1c2Jqbmp5c2R5anN1cmd4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQwMTI4MjksImV4cCI6MjA5OTU4ODgyOX0.24Xh8Q7Y7CxucZY_bu1I1AOjSe3azcwVtrAonPChGU0';
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-let photoBlob = null;
+let photoBlobs = []; // array of { blob, previewUrl }
 
-const uploadBox = document.getElementById('uploadBox');
+const uploadGrid = document.getElementById('uploadGrid');
 const submitBtn = document.getElementById('submitBtn');
 const errorMsg = document.getElementById('errorMsg');
 const successMsg = document.getElementById('successMsg');
 
 function checkFormValid(){
   const consent = document.getElementById('consent').checked;
-  submitBtn.disabled = !(photoBlob && consent);
+  submitBtn.disabled = !(photoBlobs.length > 0 && consent);
 }
 
 document.getElementById('consent').addEventListener('change', checkFormValid);
 
-// Event delegation: works no matter how many times the inner <input> gets replaced
-uploadBox.addEventListener('change', (e) => {
+function renderUploadGrid(){
+  uploadGrid.innerHTML = '';
+
+  photoBlobs.forEach((item, idx) => {
+    const tile = document.createElement('div');
+    tile.className = 'upload-tile';
+    tile.innerHTML = `<img src="${item.previewUrl}"><div class="remove-btn" data-idx="${idx}">×</div>`;
+    uploadGrid.appendChild(tile);
+  });
+
+  // Always show an "add more" tile at the end
+  const addTile = document.createElement('div');
+  addTile.className = 'upload-tile';
+  addTile.id = 'addTile';
+  addTile.innerHTML = `<span>+ Add photo</span><input type="file" id="photoInput" accept="image/*" multiple>`;
+  uploadGrid.appendChild(addTile);
+}
+renderUploadGrid();
+
+// Event delegation: works no matter how many times tiles get added/removed
+uploadGrid.addEventListener('click', (e) => {
+  if(e.target.matches('.remove-btn')){
+    const idx = parseInt(e.target.dataset.idx, 10);
+    photoBlobs.splice(idx, 1);
+    renderUploadGrid();
+    checkFormValid();
+  }
+});
+
+uploadGrid.addEventListener('change', (e) => {
   if(!e.target.matches('input[type=file]')) return;
-  const file = e.target.files[0];
-  if(!file) return;
+  const files = Array.from(e.target.files || []);
+  if(files.length === 0) return;
 
-  const reader = new FileReader();
-  reader.onload = (evt) => {
-    const img = new Image();
-    img.onload = () => {
-      // resize to keep uploads small
-      const maxW = 900;
-      const scale = Math.min(1, maxW / img.width);
-      const canvas = document.createElement('canvas');
-      canvas.width = img.width * scale;
-      canvas.height = img.height * scale;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+  let remaining = files.length;
+  files.forEach((file) => {
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      const img = new Image();
+      img.onload = () => {
+        const maxW = 900;
+        const scale = Math.min(1, maxW / img.width);
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width * scale;
+        canvas.height = img.height * scale;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-      canvas.toBlob((blob) => {
-        photoBlob = blob;
-        const previewUrl = URL.createObjectURL(blob);
-        uploadBox.classList.add('has-image');
-        uploadBox.innerHTML = `<img src="${previewUrl}"><input type="file" id="photoInput" accept="image/*">`;
-        checkFormValid();
-      }, 'image/jpeg', 0.7);
+        canvas.toBlob((blob) => {
+          photoBlobs.push({ blob, previewUrl: URL.createObjectURL(blob) });
+          remaining--;
+          if(remaining === 0){
+            renderUploadGrid();
+            checkFormValid();
+          }
+        }, 'image/jpeg', 0.7);
+      };
+      img.onerror = () => {
+        errorMsg.textContent = "Couldn't read one of those photos. Try a different one (JPG or PNG works best).";
+        errorMsg.classList.add('show');
+        remaining--;
+      };
+      img.src = evt.target.result;
     };
-    img.onerror = () => {
-      errorMsg.textContent = "Couldn't read that photo. Try a different one (JPG or PNG works best).";
+    reader.onerror = () => {
+      errorMsg.textContent = "Couldn't read one of those files. Try again.";
       errorMsg.classList.add('show');
+      remaining--;
     };
-    img.src = evt.target.result;
-  };
-  reader.onerror = () => {
-    errorMsg.textContent = "Couldn't read that file. Try again.";
-    errorMsg.classList.add('show');
-  };
-  reader.readAsDataURL(file);
+    reader.readAsDataURL(file);
+  });
 });
 
 submitBtn.addEventListener('click', async () => {
@@ -261,16 +303,19 @@ submitBtn.addEventListener('click', async () => {
   submitBtn.textContent = 'TAKING TOKEN...';
 
   try{
-    // 1. Upload the photo to storage
-    const fileName = `${Date.now()}-${Math.random().toString(36).slice(2,8)}.jpg`;
-    const { error: uploadError } = await supabase.storage
-      .from('photos')
-      .upload(fileName, photoBlob, { contentType: 'image/jpeg' });
+    // 1. Upload every photo to storage
+    const photoUrls = [];
+    for(const item of photoBlobs){
+      const fileName = `${Date.now()}-${Math.random().toString(36).slice(2,8)}.jpg`;
+      const { error: uploadError } = await supabase.storage
+        .from('photos')
+        .upload(fileName, item.blob, { contentType: 'image/jpeg' });
 
-    if(uploadError) throw uploadError;
+      if(uploadError) throw uploadError;
 
-    const { data: urlData } = supabase.storage.from('photos').getPublicUrl(fileName);
-    const photoUrl = urlData.publicUrl;
+      const { data: urlData } = supabase.storage.from('photos').getPublicUrl(fileName);
+      photoUrls.push(urlData.publicUrl);
+    }
 
     // 2. Insert the row — id auto-increments and doubles as the token number
     const { data: inserted, error: insertError } = await supabase
@@ -279,7 +324,8 @@ submitBtn.addEventListener('click', async () => {
         handle: document.getElementById('handle').value.trim() || 'anonymous',
         city: document.getElementById('city').value.trim() || 'unknown',
         routine: document.getElementById('routine').value.trim() || 'not specified',
-        photo_url: photoUrl,
+        photo_url: photoUrls[0],
+        photo_urls: photoUrls,
         consent: true
       })
       .select()
@@ -355,10 +401,13 @@ async function loadQueue(){
     queueCount.textContent = tokens.length + ' waiting';
 
     tokens.forEach(t => {
+      const photos = (t.photo_urls && t.photo_urls.length > 0) ? t.photo_urls : [t.photo_url];
+      const photosHtml = photos.map(url => `<img src="${url}" data-full="${url}">`).join('');
+
       const card = document.createElement('div');
       card.className = 'case-card';
       card.innerHTML = `
-        <img src="${t.photo_url}" data-full="${t.photo_url}">
+        <div class="case-photos">${photosHtml}</div>
         <div class="case-meta">
           <b>TOKEN #${String(t.id).padStart(4,'0')}</b>
           ${t.handle} · ${t.city}<br>
